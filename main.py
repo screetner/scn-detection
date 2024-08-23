@@ -1,13 +1,12 @@
 import cv2
 import threading
 import queue
-import io
 import tempfile
 from azure.storage.filedatalake import DataLakeServiceClient
 from ultralytics import YOLO
+import argparse
 
 print("Initializing YOLOv8 model...")
-# model = torch.load('./model/best.pt')
 model = YOLO('./model/best.pt')
 
 print("Setting up Data Lake client...")
@@ -28,38 +27,32 @@ def download_video(file_system, directory_name, file_name):
     total_size = file_properties.size
     print(f"Total file size: {total_size} bytes")
 
-    # Buffer to hold the entire video
+    # Download the entire file
+    download = file_client.download_file()
+    downloaded_bytes = 0
     video_buffer = b""
-    chunk_size = 10 * 1024 * 1024  # 10MB chunk size
-    offset = 0
 
-    while offset < total_size:
-        print(f"Downloading chunk from offset {offset}")
-        chunk = file_client.download_file(offset=offset, length=chunk_size).readall()
+    for chunk in download.chunks():
         video_buffer += chunk
-        offset += len(chunk)
+        downloaded_bytes += len(chunk)
+        progress = (downloaded_bytes / total_size) * 100
+        print(f"Download progress: {progress:.2f}%")
 
     print("Download complete")
     return video_buffer
-
 
 def process_video(video_buffer):
     frame_count = 0
     print("Starting video processing...")
 
-    # Write the video buffer to a temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_file:
         temp_file.write(video_buffer)
         temp_file_path = temp_file.name
 
-    # Open the temporary file with OpenCV
     video_capture = cv2.VideoCapture(temp_file_path)
 
-    # Get video properties
     fps = video_capture.get(cv2.CAP_PROP_FPS)
     total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    # Calculate the number of frames to skip (5 seconds worth of frames)
     frames_to_skip = int(fps * 5)
 
     print(f"Video FPS: {fps}")
@@ -73,17 +66,20 @@ def process_video(video_buffer):
 
         frame_count += 1
 
-        # Process only every 5 seconds (skip frames_to_skip frames)
         if frame_count % frames_to_skip != 0:
             continue
 
         print(f'Processing frame {frame_count}, shape: {frame.shape}')
 
-        # Perform object detection using YOLOv8 model
         results = model(frame)
 
-        if len(results) > 0:  # Check if there are any detections
+        if len(results) > 0:
             print(f"Detections found in frame {frame_count}")
+            for result in results:
+                for box in result.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
             with detection_condition:
                 while detection_queue.full():
                     print("Detection queue full, waiting...")
@@ -93,7 +89,6 @@ def process_video(video_buffer):
 
     video_capture.release()
 
-    # Clean up the temporary file
     import os
     os.remove(temp_file_path)
 
@@ -105,7 +100,18 @@ def process_video(video_buffer):
 def upload_detections(file_system, upload_directory):
     print(f"Starting upload to {file_system}/{upload_directory}")
     file_system_client = datalake_service_client.get_file_system_client(file_system)
+
+    # Check if the directory exists before attempting to delete it
+    try:
+        file_system_client.get_directory_client(upload_directory).get_directory_properties()
+        print(f"Directory {upload_directory} exists. Deleting it...")
+        file_system_client.delete_directory(upload_directory)
+    except Exception as e:
+        print(f"Directory {upload_directory} does not exist or cannot be accessed. Proceeding to create it...")
+
+    # Create the directory
     directory_client = file_system_client.get_directory_client(upload_directory)
+    directory_client.create_directory()
 
     while True:
         with detection_condition:
@@ -131,20 +137,32 @@ def upload_detections(file_system, upload_directory):
 
     print("Upload process complete")
 
-# Download the video completely
-print("Downloading video...")
-video_buffer = download_video("thanapat-blob-poc", "/", "b3025747c9fb8fb993090f369e43c007")
 
-# Start processing and uploading in parallel
-print("Starting threads...")
-process_thread = threading.Thread(target=process_video, args=(video_buffer,))
-upload_thread = threading.Thread(target=upload_detections, args=("thanapat-blob-poc", "test"))
 
-process_thread.start()
-upload_thread.start()
 
-print("Waiting for threads to complete...")
-process_thread.join()
-upload_thread.join()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process and upload video detections.')
+    parser.add_argument('--file_system', type=str, required=True, help='The file system name in Azure Data Lake.')
+    parser.add_argument('--directory_name', type=str, required=True, help='The directory name in Azure Data Lake.')
+    parser.add_argument('--file_name', type=str, required=True, help='The file name of the video to download.')
+    parser.add_argument('--upload_directory', type=str, required=True, help='The directory name to upload detections.')
 
-print("Video processing and uploading completed.")
+    args = parser.parse_args()
+
+    # Download the video completely
+    print("Downloading video...")
+    video_buffer = download_video(args.file_system, args.directory_name, args.file_name)
+
+    # Start processing and uploading in parallel
+    print("Starting threads...")
+    process_thread = threading.Thread(target=process_video, args=(video_buffer,))
+    upload_thread = threading.Thread(target=upload_detections, args=(args.file_system, args.upload_directory))
+
+    process_thread.start()
+    upload_thread.start()
+
+    print("Waiting for threads to complete...")
+    process_thread.join()
+    upload_thread.join()
+
+    print("Video processing and uploading completed.")
