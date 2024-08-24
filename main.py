@@ -7,6 +7,8 @@ from ultralytics import YOLO
 import argparse
 import os
 
+from database import get_db_connection, insert_uploaded_files
+
 print("Initializing YOLOv8 model...")
 model = YOLO('./model/best.pt')
 
@@ -144,23 +146,18 @@ def upload_detections(file_system, upload_directory):
         print(f"Uploading detection for frame {frame_count}...")
         file_name = f"detection_{frame_count}.jpg"
         file_name_db = f"{upload_directory}/{file_name}"
-        file_client = directory_client.create_file(file_name)
-        file_client.upload_data(img_bytes, overwrite=True)
+        # file_client = directory_client.create_file(file_name)
+        # file_client.upload_data(img_bytes, overwrite=True)
         print(f"Uploaded {file_name}")
 
         uploaded_files.append(file_name_db)
 
     print("Upload process complete")
 
-def db_insert():
+def db_insert(connection):
     print("Inserting uploaded file names into the database...")
-    for file_name in uploaded_files:
-        print(f"Inserting {file_name} into the database")
+    insert_uploaded_files(connection, uploaded_files)
     print("Database insertion complete")
-
-
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process and upload video detections.')
@@ -187,6 +184,7 @@ if __name__ == '__main__':
     process_thread.join()
     upload_thread.join()
 
-    db_insert()
+    connection = get_db_connection()
+    db_insert(connection)
 
     print("Video processing and uploading completed.")
