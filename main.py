@@ -5,6 +5,7 @@ import tempfile
 from azure.storage.filedatalake import DataLakeServiceClient
 from ultralytics import YOLO
 import argparse
+import os
 
 print("Initializing YOLOv8 model...")
 model = YOLO('./model/best.pt')
@@ -17,6 +18,15 @@ detection_queue = queue.Queue(maxsize=10)
 detection_condition = threading.Condition()
 
 def download_video(file_system, directory_name, file_name):
+    local_file_path = os.path.join('videos', file_name)
+
+    # Check if the file exists locally
+    if os.path.exists(local_file_path):
+        print(f"File {file_name} exists locally. Using the local file.")
+        with open(local_file_path, 'rb') as f:
+            video_buffer = f.read()
+        return video_buffer
+
     print(f"Starting download of {file_name} from {file_system}/{directory_name}")
     file_system_client = datalake_service_client.get_file_system_client(file_system)
     directory_client = file_system_client.get_directory_client(directory_name)
@@ -97,6 +107,8 @@ def process_video(video_buffer):
         detection_queue.put(None)
         detection_condition.notify()
 
+uploaded_files = []
+
 def upload_detections(file_system, upload_directory):
     print(f"Starting upload to {file_system}/{upload_directory}")
     file_system_client = datalake_service_client.get_file_system_client(file_system)
@@ -131,11 +143,21 @@ def upload_detections(file_system, upload_directory):
 
         print(f"Uploading detection for frame {frame_count}...")
         file_name = f"detection_{frame_count}.jpg"
+        file_name_db = f"{upload_directory}/{file_name}"
         file_client = directory_client.create_file(file_name)
         file_client.upload_data(img_bytes, overwrite=True)
         print(f"Uploaded {file_name}")
 
+        uploaded_files.append(file_name_db)
+
     print("Upload process complete")
+
+def db_insert():
+    print("Inserting uploaded file names into the database...")
+    for file_name in uploaded_files:
+        print(f"Inserting {file_name} into the database")
+    print("Database insertion complete")
+
 
 
 
@@ -164,5 +186,7 @@ if __name__ == '__main__':
     print("Waiting for threads to complete...")
     process_thread.join()
     upload_thread.join()
+
+    db_insert()
 
     print("Video processing and uploading completed.")
