@@ -6,18 +6,20 @@ from azure.storage.filedatalake import DataLakeServiceClient
 from ultralytics import YOLO
 import argparse
 import os
-
+from dotenv import load_dotenv
 from database import get_db_connection, insert_uploaded_files
+
+load_dotenv()
 
 print("Initializing YOLOv8 model...")
 model = YOLO('./model/best.pt')
 
 print("Setting up Data Lake client...")
-datalake_service_client = DataLakeServiceClient.from_connection_string(
-    "")
+datalake_service_client = DataLakeServiceClient.from_connection_string(os.getenv("BLOB"))
 
 detection_queue = queue.Queue(maxsize=10)
 detection_condition = threading.Condition()
+
 
 def download_video(file_system, directory_name, file_name):
     local_file_path = os.path.join('videos', file_name)
@@ -52,6 +54,7 @@ def download_video(file_system, directory_name, file_name):
 
     print("Download complete")
     return video_buffer
+
 
 def process_video(video_buffer):
     frame_count = 0
@@ -109,7 +112,9 @@ def process_video(video_buffer):
         detection_queue.put(None)
         detection_condition.notify()
 
+
 uploaded_files = []
+
 
 def upload_detections(file_system, upload_directory):
     print(f"Starting upload to {file_system}/{upload_directory}")
@@ -154,10 +159,12 @@ def upload_detections(file_system, upload_directory):
 
     print("Upload process complete")
 
-def db_insert(connection):
+
+def db_insert(connection, recorder_id):
     print("Inserting uploaded file names into the database...")
-    insert_uploaded_files(connection, uploaded_files)
+    insert_uploaded_files(connection, uploaded_files, recorder_id)
     print("Database insertion complete")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process and upload video detections.')
@@ -165,6 +172,8 @@ if __name__ == '__main__':
     parser.add_argument('--directory_name', type=str, required=True, help='The directory name in Azure Data Lake.')
     parser.add_argument('--file_name', type=str, required=True, help='The file name of the video to download.')
     parser.add_argument('--upload_directory', type=str, required=True, help='The directory name to upload detections.')
+    parser.add_argument('--recorder_id', type=str, required=True,
+                        help='The recorded user ID to associate with the detections.')
 
     args = parser.parse_args()
 
@@ -185,6 +194,6 @@ if __name__ == '__main__':
     upload_thread.join()
 
     connection = get_db_connection()
-    db_insert(connection)
+    db_insert(connection, args.recorder_id)
 
     print("Video processing and uploading completed.")

@@ -45,3 +45,5 @@ tzdata==2024.1
 ultralytics==8.2.79
 ultralytics-thop==2.0.5
 urllib3==2.2.2
+
+cuid2~=2.0.1

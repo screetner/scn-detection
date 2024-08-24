@@ -1,3 +1,4 @@
+import cuid2
 import psycopg2
 import os
 from dotenv import load_dotenv
@@ -26,13 +27,25 @@ def get_asset_type(connection):
         cursor.close()
 
 
-def insert_uploaded_files(connection, file_names):
+def insert_uploaded_files(connection, file_names, recorder_id):
     try:
-        assetId = get_asset_type(connection)
-        print(assetId)
+        assetTypeId = get_asset_type(connection)
         cursor = connection.cursor()
-        insert_query = 'INSERT INTO public."asset" (assetId,geoCoordinate,assetTypeId,imageFileLink,recordedUser) VALUES (%s,%s,%s,%s,%s),(assetId,[0,0],assetTypeId,%s,%s)'
-        cursor.executemany(insert_query, [(file_name,) for file_name in file_names])
+
+        insert_query = '''
+        INSERT INTO public."assets" 
+        ("assetId", "geoCoordinate", "assetTypeId", "imageFileLink", "recordedUser", "recordedAt") 
+        VALUES (%s, %s, %s, %s, %s, %s)
+        '''
+
+        # Preparing data for executemany
+        data_to_insert = [
+            (cuid2.Cuid().generate(), '(18.788, 98.597)', assetTypeId, file_name, recorder_id, '2024-08-24 09:41:18.803852')
+            for file_name in file_names
+        ]
+
+        # Execute the query with the prepared data
+        cursor.executemany(insert_query, data_to_insert)
         connection.commit()
     except Exception as e:
         connection.rollback()
