@@ -2,6 +2,91 @@
     "definition": {
         "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
         "actions": {
+            "Check_container_status": {
+                "actions": {
+                    "For_each": {
+                        "actions": {
+                            "Condition": {
+                                "actions": {
+                                    "Delete_a_container_group": {
+                                        "inputs": {
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['aci']['connectionId']"
+                                                }
+                                            },
+                                            "method": "delete",
+                                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
+                                            "queries": {
+                                                "x-ms-api-version": "2019-12-01"
+                                            }
+                                        },
+                                        "type": "ApiConnection"
+                                    },
+                                    "Set_variable": {
+                                        "inputs": {
+                                            "name": "container status",
+                                            "value": "Terminated"
+                                        },
+                                        "runAfter": {
+                                            "Delete_a_container_group": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "SetVariable"
+                                    }
+                                },
+                                "else": {
+                                    "actions": {}
+                                },
+                                "expression": {
+                                    "or": [
+                                        {
+                                            "equals": [
+                                                "@items('For_each')?['properties']?['instanceView']?['currentState']?['state']",
+                                                "Terminated"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "type": "If"
+                            }
+                        },
+                        "foreach": "@body('Get_container_group')['properties']['containers']",
+                        "runAfter": {
+                            "Get_container_group": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "Foreach"
+                    },
+                    "Get_container_group": {
+                        "inputs": {
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['aci']['connectionId']"
+                                }
+                            },
+                            "method": "get",
+                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
+                            "queries": {
+                                "x-ms-api-version": "2019-12-01"
+                            }
+                        },
+                        "type": "ApiConnection"
+                    }
+                },
+                "expression": "@equals(variables('container status'),'Terminated')",
+                "limit": {
+                    "timeout": "PT1H"
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Until"
+            },
             "Create_or_update_a_container_group": {
                 "inputs": {
                     "body": {
@@ -9,35 +94,51 @@
                         "properties": {
                             "containers": [
                                 {
-                                    "name": "simple-container",
+                                    "name": "detection-container",
                                     "properties": {
-                                        "image": "mcr.microsoft.com/azuredocs/aci-helloworld:latest",
-                                        "ports": [
+                                        "command": [
+                                            "python",
+                                            "main.py",
+                                            "--file_system",
+                                            "@{triggerBody()?['file_system']}",
+                                            "--directory_name",
+                                            "@{triggerBody()?['directory_name']}",
+                                            "--file_name",
+                                            "@{triggerBody()?['file_name']}",
+                                            "--upload_directory",
+                                            "@{triggerBody()?['upload_directory']}",
+                                            "--recorder_id",
+                                            "@{triggerBody()?['recorder_id']}"
+                                        ],
+                                        "environmentVariables": [
                                             {
-                                                "port": 80,
-                                                "protocol": "TCP"
+                                                "name": "BLOB",
+                                                "value": ""
+                                            },
+                                            {
+                                                "name": "DB_CONNECTION",
+                                                "value": ""
                                             }
                                         ],
+                                        "image": "aujung/scn-detection:main",
                                         "resources": {
                                             "requests": {
-                                                "cpu": 1,
-                                                "memoryInGB": 1
+                                                "cpu": 4,
+                                                "memoryInGB": 16
                                             }
                                         }
                                     }
                                 }
                             ],
-                            "ipAddress": {
-                                "ports": [
-                                    {
-                                        "port": 80,
-                                        "protocol": "TCP"
-                                    }
-                                ],
-                                "type": "Public"
-                            },
+                            "imageRegistryCredentials": [
+                                {
+                                    "password": "",
+                                    "server": "docker.io",
+                                    "username": "aujung"
+                                }
+                            ],
                             "osType": "Linux",
-                            "restartPolicy": "OnFailure",
+                            "restartPolicy": "Never",
                             "sku": "Standard"
                         }
                     },
@@ -47,13 +148,30 @@
                         }
                     },
                     "method": "put",
-                    "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['name'])}",
+                    "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
                     "queries": {
                         "x-ms-api-version": "2019-12-01"
                     }
                 },
                 "runAfter": {},
                 "type": "ApiConnection"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "container status",
+                            "type": "string",
+                            "value": "Init"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Create_or_update_a_container_group": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
             }
         },
         "contentVersion": "1.0.0.0",
@@ -70,7 +188,19 @@
                     "method": "POST",
                     "schema": {
                         "properties": {
-                            "name": {
+                            "directory_name": {
+                                "type": "string"
+                            },
+                            "file_name": {
+                                "type": "string"
+                            },
+                            "file_system": {
+                                "type": "string"
+                            },
+                            "recorder_id": {
+                                "type": "string"
+                            },
+                            "upload_directory": {
                                 "type": "string"
                             }
                         },
