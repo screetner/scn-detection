@@ -1,0 +1,97 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Create_or_update_a_container_group": {
+                "inputs": {
+                    "body": {
+                        "location": "Southeast Asia",
+                        "properties": {
+                            "containers": [
+                                {
+                                    "name": "simple-container",
+                                    "properties": {
+                                        "image": "mcr.microsoft.com/azuredocs/aci-helloworld:latest",
+                                        "ports": [
+                                            {
+                                                "port": 80,
+                                                "protocol": "TCP"
+                                            }
+                                        ],
+                                        "resources": {
+                                            "requests": {
+                                                "cpu": 1,
+                                                "memoryInGB": 1
+                                            }
+                                        }
+                                    }
+                                }
+                            ],
+                            "ipAddress": {
+                                "ports": [
+                                    {
+                                        "port": 80,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "type": "Public"
+                            },
+                            "osType": "Linux",
+                            "restartPolicy": "OnFailure",
+                            "sku": "Standard"
+                        }
+                    },
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['aci']['connectionId']"
+                        }
+                    },
+                    "method": "put",
+                    "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['name'])}",
+                    "queries": {
+                        "x-ms-api-version": "2019-12-01"
+                    }
+                },
+                "runAfter": {},
+                "type": "ApiConnection"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        },
+        "triggers": {
+            "When_a_HTTP_request_is_received": {
+                "inputs": {
+                    "method": "POST",
+                    "schema": {
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "kind": "Http",
+                "operationOptions": "EnableSchemaValidation",
+                "type": "Request"
+            }
+        }
+    },
+    "parameters": {
+        "$connections": {
+            "value": {
+                "aci": {
+                    "connectionId": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/resourceGroups/scn/providers/Microsoft.Web/connections/aci",
+                    "connectionName": "aci",
+                    "id": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/providers/Microsoft.Web/locations/southeastasia/managedApis/aci"
+                }
+            }
+        }
+    }
+}
