@@ -151,8 +151,8 @@ def upload_detections(file_system, upload_directory):
         print(f"Uploading detection for frame {frame_count}...")
         file_name = f"detection_{frame_count}.jpg"
         file_name_db = f"{upload_directory}/{file_name}"
-        # file_client = directory_client.create_file(file_name)
-        # file_client.upload_data(img_bytes, overwrite=True)
+        file_client = directory_client.create_file(file_name)
+        file_client.upload_data(img_bytes, overwrite=True)
         print(f"Uploaded {file_name}")
 
         uploaded_files.append(file_name_db)
