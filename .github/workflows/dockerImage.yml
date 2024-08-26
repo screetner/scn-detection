@@ -35,6 +35,6 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/scn-detection-:latest
+        tags: ${{ secrets.DOCKER_USERNAME }}/scn-detection:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
