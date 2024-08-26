@@ -38,6 +38,6 @@ jobs:
         file: ./Dockerfile
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: action
+        tags: ${{ secrets.DOCKER_USERNAME }}/scn-detection-:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
