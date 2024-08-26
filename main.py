@@ -196,4 +196,4 @@ if __name__ == '__main__':
     connection = get_db_connection()
     db_insert(connection, args.recorder_id)
 
-    print("Video processing and uploading completed.")
+    print("Video processing and uploading completed. ✔️")
