@@ -3,7 +3,7 @@ name: Build and Push Docker Image
 on:
   push:
     branches:
-      - not-deployed
+      - main
 
 jobs:
   build:
@@ -38,6 +38,6 @@ jobs:
         file: ./Dockerfile
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
+        tags: action
         cache-from: type=gha
         cache-to: type=gha,mode=max
