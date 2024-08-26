@@ -1,36 +1,42 @@
 # Stage 1: Build
-FROM python:3.12.5-slim
+FROM python:3.12-slim-bookworm AS build
 
-# Set the working directory
 WORKDIR /app
 
-# Install dependencies for OpenCV
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
-    libjpeg-dev \
-    libpng-dev \
-    libtiff-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libv4l-dev \
-    libxvidcore-dev \
-    libx264-dev \
-    libgtk2.0-dev \
-    libgtk-3-dev \
-    libatlas-base-dev \
-    gfortran \
-    python3-dev \
-    libhdf5-dev \
-    pkg-config \
-    libgl1-mesa-glx \
-    && apt-get clean \
+    libopencv-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file and install dependencies
+# Create a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
-COPY . .
+# Copy only necessary application files
+COPY main.py .
+COPY database.py .
+COPY model/best.pt ./model/
+
+# Stage 2: Runtime
+FROM python:3.12-slim-bookworm
+
+WORKDIR /app
+
+# Copy virtual environment from build stage
+COPY --from=build /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install only essential runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application files from build stage
+COPY --from=build /app /app

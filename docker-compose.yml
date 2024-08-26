@@ -3,8 +3,8 @@ version: '3.8'
 services:
   scn-detection:
     build: .
-    image: aujung/scn-detection
+    image: image-name
     environment:
-      - BLOB=""
-      - DB_CONNECTION=""
+      - BLOB=
+      - DB_CONNECTION=
     command: ["python", "main.py", "--file_system", "thanapat-blob-poc", "--directory_name", "/", "--file_name", "b3025747c9fb8fb993090f369e43c007", "--upload_directory", "test", "--recorder_id", "ljy3xkkfmqe7uj5y55nokqp0"]
