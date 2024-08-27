@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM python:3.12-slim-bookworm AS build
+FROM python:3.11-slim-bookworm AS build
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ COPY database.py .
 COPY model/best.pt ./model/
 
 # Stage 2: Runtime
-FROM python:3.12-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
