@@ -3,7 +3,7 @@ version: '3.8'
 services:
   scn-detection:
     build: .
-    image: image-name
+    image: aujung/scn-detectin
     environment:
       - BLOB=
       - DB_CONNECTION=
