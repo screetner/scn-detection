@@ -1,6 +1,9 @@
 import struct
+from typing import List
 
-def read_location_binary(path):
+from src.custom_types.tloc_decoder import TlocTuple
+
+def read_location_binary(path) -> List[TlocTuple]:
     locations = []
 
     with open(path, 'rb') as f:
