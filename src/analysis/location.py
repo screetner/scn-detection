@@ -27,7 +27,7 @@ def haversine(lat1, lon1, lat2, lon2):
 
 
 def location_distance_histogram():
-    location_file_path = os.path.join(os.path.dirname(__file__), '../../tloc/1731657012941.tloc')
+    location_file_path = os.path.join(os.path.dirname(__file__), '../../downloaded/1731667014937.tloc')
     locations = read_location_binary(location_file_path)
 
     distances = []
