@@ -2,11 +2,14 @@ import os
 import threading
 from threading import Condition
 from queue import Queue
+from typing import List
+
 from ultralytics import YOLO
 
 import cv2
 
 from src.azure_datalake import datalake_service_client
+from src.custom_types.assets_payload import AssetsPayload, Asset
 from src.tloc_decoder import read_location_binary
 
 
@@ -16,6 +19,7 @@ def get_as_absolute_path(path: str):
 model_path = get_as_absolute_path('../model/best.pt')
 model = YOLO(model_path)
 
+assets_payload: AssetsPayload = {}
 QUEUE_SIZE = 1024
 detection_queue = Queue(QUEUE_SIZE)
 detection_thread_condition = Condition()
@@ -33,7 +37,6 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
         frame_interval = int(fps * real_interval_s)
         frame_count = 0
 
-        skbidi = 0  # this is for debugging only
         while video_capture.isOpened():
             ret, frame = video_capture.read()
 
@@ -63,20 +66,14 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
                         tloc_idx += 1
                         tloc = timestamp_location_list[tloc_idx]
 
-                    print("detection number: ", skbidi)
-                    print("frame's location: ", tloc['latitude'], tloc['longitude'])
-                    print("frame's timestamp: ", timestamp_ms)
-                    print("location's timestamp: ", tloc['timestamp'])
-                    print("next location's timestamp: ", timestamp_location_list[tloc_idx + 1]['timestamp'])
-                    print("tloc_idx: ", tloc_idx)
-
-                    skbidi += 1
-
                     # Push frame to detection queue
                     with detection_thread_condition:
                         while detection_queue.full():
                             detection_thread_condition.wait()
-                        detection_queue.put(frame)
+                        detection_queue.put({
+                            'frame': frame,
+                            'tloc': tloc
+                        })
                         detection_thread_condition.notify_all()
 
         video_capture.release()
@@ -113,13 +110,14 @@ def upload_detections(file_system, upload_directory):
             while detection_queue.empty():
                 print("Detection queue empty, waiting for detections...")
                 detection_thread_condition.wait()
-            frame = detection_queue.get()
+            data = detection_queue.get()
             detection_thread_condition.notify()
 
-        if frame is None:
+        if data is None:
             print("Received end of detection signal")
             break
 
+        frame, tloc = data['frame'], data['tloc']
         _, img_encoded = cv2.imencode('.jpg', frame)
         img_bytes = img_encoded.tobytes()
 
@@ -131,13 +129,38 @@ def upload_detections(file_system, upload_directory):
         print(f"Uploaded {file_name}")
 
         uploaded_files.append(file_name_db)
+
+        # Add asset to payload
+        asset : Asset = {
+            "assetTypeId" : "qt4ibgg4ef4r4eexzquohvfc",
+            "geoCoordinate" : {
+                "lat" : tloc['latitude'],
+                "lng" : tloc['longitude']
+            },
+            "imageFileName": upload_directory + "/" + file_name
+        }
+        assets_payload['assets'].append(asset)
+
         item_count += 1
 
     print("Upload process complete")
 
-def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str, initial_timestamp: int):
+def upload_assets():
+    print("Uploading assets...")
+    print(assets_payload)
+
+
+def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str, initial_timestamp: int, recorded_user_id : str):
+    assets_payload['recordedUserId'] = recorded_user_id
+    assets_payload['assets'] = []
+
     process_thread = threading.Thread(target=process_video, args=(video_path, tloc_path, initial_timestamp))
     upload_thread = threading.Thread(target=upload_detections, args=(file_system_directory, upload_directory))
 
     upload_thread.start()
     process_thread.start()
+
+    upload_thread.join()
+    process_thread.join()
+
+    upload_assets()
