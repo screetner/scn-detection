@@ -9,6 +9,7 @@ class Asset(TypedDict, total=False):
     assetTypeId: str
     geoCoordinate: GeoCoordinate
     imageFileName: str
+    recordedAt: str
 
 
 class AssetsPayload(TypedDict, total=False):

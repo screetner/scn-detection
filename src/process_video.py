@@ -1,9 +1,11 @@
 import os
 import threading
+import requests
+from datetime import datetime, timezone
 from threading import Condition
 from queue import Queue
-from typing import List
 
+from dotenv import load_dotenv
 from ultralytics import YOLO
 
 import cv2
@@ -13,8 +15,11 @@ from src.custom_types.assets_payload import AssetsPayload, Asset
 from src.tloc_decoder import read_location_binary
 
 
+load_dotenv()
+
 def get_as_absolute_path(path: str):
     return os.path.join(os.path.dirname(__file__), path)
+
 
 model_path = get_as_absolute_path('../model/best.pt')
 model = YOLO(model_path)
@@ -29,7 +34,7 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
         tloc_path_abs = get_as_absolute_path(tloc_path_abs)
 
         timestamp_location_list = read_location_binary(tloc_path_abs)
-        print(len(timestamp_location_list))
+        print("total tloc records: " + str(len(timestamp_location_list)))
 
         video_capture = cv2.VideoCapture(video_path_abs)
         fps = video_capture.get(cv2.CAP_PROP_FPS)
@@ -62,7 +67,8 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
                     tloc = timestamp_location_list[tloc_idx]
 
                     # Calculate frame's location using flooring
-                    while tloc_idx < timestamp_location_list_len - 1 and timestamp_location_list[tloc_idx + 1]['timestamp'] < timestamp_ms:
+                    while tloc_idx < timestamp_location_list_len - 1 and timestamp_location_list[tloc_idx + 1][
+                        'timestamp'] < timestamp_ms:
                         tloc_idx += 1
                         tloc = timestamp_location_list[tloc_idx]
 
@@ -72,7 +78,8 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
                             detection_thread_condition.wait()
                         detection_queue.put({
                             'frame': frame,
-                            'tloc': tloc
+                            'tloc': tloc,
+                            'recordedAt': datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc).isoformat()
                         })
                         detection_thread_condition.notify_all()
 
@@ -87,7 +94,8 @@ def process_video(video_path_abs: str, tloc_path_abs: str, initial_timestamp: in
         print(f'Error processing video: {e}')
         return None
 
-def upload_detections(file_system, upload_directory):
+
+def upload_detections(file_system, upload_directory, video_name):
     print(f"Starting upload to {file_system}/{upload_directory}")
     file_system_client = datalake_service_client.get_file_system_client(file_system)
 
@@ -122,7 +130,7 @@ def upload_detections(file_system, upload_directory):
         img_bytes = img_encoded.tobytes()
 
         print(f"Uploading detection for frame {item_count}...")
-        file_name = f"detection_{item_count}.jpg"
+        file_name = f"detection_{video_name}_{item_count}.jpg"
         file_name_db = f"{upload_directory}/{file_name}"
         file_client = directory_client.create_file(file_name)
         file_client.upload_data(img_bytes, overwrite=True)
@@ -131,13 +139,15 @@ def upload_detections(file_system, upload_directory):
         uploaded_files.append(file_name_db)
 
         # Add asset to payload
-        asset : Asset = {
-            "assetTypeId" : "qt4ibgg4ef4r4eexzquohvfc",
-            "geoCoordinate" : {
-                "lat" : tloc['latitude'],
-                "lng" : tloc['longitude']
+        # recordedAt =
+        asset: Asset = {
+            "assetTypeId": "qt4ibgg4ef4r4eexzquohvfc",
+            "geoCoordinate": {
+                "lat": tloc['latitude'],
+                "lng": tloc['longitude']
             },
-            "imageFileName": upload_directory + "/" + file_name
+            "imageFileName": "/" + file_name_db,
+            "recordedAt": data['recordedAt'],
         }
         assets_payload['assets'].append(asset)
 
@@ -145,17 +155,23 @@ def upload_detections(file_system, upload_directory):
 
     print("Upload process complete")
 
+
 def upload_assets():
-    print("Uploading assets...")
-    print(assets_payload)
+    api_url = os.getenv('API_URL') + '/python'
+
+    try:
+        requests.post(api_url, json=assets_payload)
+    except requests.exceptions.RequestException as e:
+        print(f"Error uploading assets: {e}")
 
 
-def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str, initial_timestamp: int, recorded_user_id : str):
+def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str,
+                        initial_timestamp: int, recorded_user_id: str, video_name: str):
     assets_payload['recordedUserId'] = recorded_user_id
     assets_payload['assets'] = []
 
     process_thread = threading.Thread(target=process_video, args=(video_path, tloc_path, initial_timestamp))
-    upload_thread = threading.Thread(target=upload_detections, args=(file_system_directory, upload_directory))
+    upload_thread = threading.Thread(target=upload_detections, args=(file_system_directory, upload_directory, video_name))
 
     upload_thread.start()
     process_thread.start()
