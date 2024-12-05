@@ -1,2 +1,8 @@
 /videos/
 .env
+/.venv
+__pycache__/
+downloaded/*
+processed_images/*
+/.idea
+.idea/

@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy only necessary application files
 COPY main.py .
 COPY database.py .
+COPY ./src/ ./src/
 COPY model/best.pt ./model/
 
 # Stage 2: Runtime
