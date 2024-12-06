@@ -9,7 +9,7 @@ CONTAINER_NAME = 'thanapat-blob-poc'
 
 def main(session_folder_path, session_detected_folder_path):
     # download_folder(CONTAINER_NAME, 'Mock_Organization_xxdgg2i0rwi2t40dollje22p/records/1731413558273_ivwupr2qc5tn54j94yii0laf','./downloaded')
-    download_folder(CONTAINER_NAME, session_folder_path, './downloaded')
+    # download_folder(CONTAINER_NAME, session_folder_path, './downloaded')
     session_information = read_session_information()
     recorded_user_id = session_information['recordedUserId']
     list_of_videos = session_information['videoTlocTuples']
