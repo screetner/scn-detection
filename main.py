@@ -15,11 +15,10 @@ def delete_existing_directory(file_system, upload_directory: str):
         file_system_client.get_directory_client(upload_directory).get_directory_properties()
         print(f"Directory {upload_directory} exists. Deleting it...")
         file_system_client.delete_directory(upload_directory)
+        directory_client = file_system_client.get_directory_client(upload_directory)
+        directory_client.create_directory()
     except Exception as e:
         print(f"Directory {upload_directory} does not exist or cannot be accessed. Proceeding to create it...")
-
-    directory_client = file_system_client.get_directory_client(upload_directory)
-    directory_client.create_directory()
 
 def main(session_folder_path, session_detected_folder_path):
     # download_folder(CONTAINER_NAME, 'Mock_Organization_xxdgg2i0rwi2t40dollje22p/records/1731413558273_ivwupr2qc5tn54j94yii0laf','./downloaded')

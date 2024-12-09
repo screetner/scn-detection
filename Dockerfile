@@ -23,6 +23,7 @@ COPY main.py .
 COPY database.py .
 COPY ./src/ ./src/
 COPY model/best.pt ./model/
+COPY model/best1.pt ./model/
 
 # Stage 2: Runtime
 FROM python:3.11-slim-bookworm
