@@ -2,8 +2,6 @@ import json
 import os
 from src.custom_types.session_information import SessionInformation
 
-
-
 def read_session_information() -> SessionInformation:
     file_path = os.path.join(os.path.dirname(__file__), '../downloaded/information.json')
     try:

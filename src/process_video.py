@@ -21,8 +21,7 @@ load_dotenv()
 def get_as_absolute_path(path: str):
     return os.path.join(os.path.dirname(__file__), path)
 
-
-model_path = get_as_absolute_path('../model/best.pt')
+model_path = get_as_absolute_path('../model/best1.pt')
 model = YOLO(model_path)
 
 assets_payload: AssetsPayload = {}
@@ -168,22 +167,12 @@ def process_asset(data, timestamp_location_queue: Queue[TlocTuple]):
 
 def upload_detections(file_system, upload_directory, video_name):
     print(f"Starting upload to {file_system}/{upload_directory}")
-    file_system_client = datalake_service_client.get_file_system_client(file_system)
-
-    # Check if the directory exists on blob before attempting to delete it
-    try:
-        file_system_client.get_directory_client(upload_directory).get_directory_properties()
-        print(f"Directory {upload_directory} exists. Deleting it...")
-        file_system_client.delete_directory(upload_directory)
-    except Exception as e:
-        print(f"Directory {upload_directory} does not exist or cannot be accessed. Proceeding to create it...")
-
-    # Create the directory on blob
-    directory_client = file_system_client.get_directory_client(upload_directory)
-    directory_client.create_directory()
 
     item_count = { "state": 0 }
     uploaded_files = []
+
+    file_system_client = datalake_service_client.get_file_system_client(file_system)
+    directory_client = file_system_client.get_directory_client(upload_directory)
 
     def process(data):
         frame, tloc = data['frame'], data['tloc']
