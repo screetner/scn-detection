@@ -1,10 +1,10 @@
+import queue
 import struct
-from typing import List
 
 from src.custom_types.tloc_decoder import TlocTuple
 
-def read_location_binary(path) -> List[TlocTuple]:
-    locations = []
+def read_location_binary(path) -> queue.Queue[TlocTuple]:
+    locations = queue.Queue()
 
     with open(path, 'rb') as f:
         header = f.read(4)
@@ -18,7 +18,7 @@ def read_location_binary(path) -> List[TlocTuple]:
 
             timestamp, lat, lng = struct.unpack('qdd', location_data)
 
-            locations.append({
+            locations.put({
                 'timestamp': timestamp,
                 'latitude': lat,
                 'longitude': lng,
