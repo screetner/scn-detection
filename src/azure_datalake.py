@@ -1,12 +1,30 @@
 import os
+from azure.core.exceptions import AzureError
 from dotenv import load_dotenv
 from azure.storage.filedatalake import DataLakeServiceClient
-
 
 load_dotenv()
 datalake_service_client = DataLakeServiceClient.from_connection_string(os.getenv("BLOB_CONNECTION_STRING"))
 
 def download_folder(container_name, folder_path, local_path):
+def delete_existing_directory(file_system, upload_directory: str):
+    # Check if the directory exists on blob before attempting to delete it
+    try:
+        file_system_client = datalake_service_client.get_file_system_client(file_system)
+
+        file_system_client.get_directory_client(upload_directory).get_directory_properties()
+        print(f"Directory {upload_directory} exists. Deleting it...")
+        file_system_client.delete_directory(upload_directory)
+        directory_client = file_system_client.get_directory_client(upload_directory)
+        directory_client.create_directory()
+    except Exception as e:
+        print(f"Directory {upload_directory} does not exist or cannot be accessed. Proceeding to create it...")
+
+def create_directory(file_system, upload_directory: str):
+    file_system_client = datalake_service_client.get_file_system_client(file_system)
+    directory_client = file_system_client.get_directory_client(upload_directory)
+    directory_client.create_directory()
+
     file_system_client = datalake_service_client.get_file_system_client(container_name)
     
     try:
