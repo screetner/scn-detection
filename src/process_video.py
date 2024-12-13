@@ -168,7 +168,7 @@ def process_asset(data, timestamp_location_queue: Queue[TlocTuple]):
 def upload_detections(file_system, upload_directory, video_name):
     print(f"Starting upload to {file_system}/{upload_directory}")
 
-    item_count = { "state": 0 }
+    item_count = { 'state': 0 }
     uploaded_files = []
 
     file_system_client = datalake_service_client.get_file_system_client(file_system)
@@ -179,8 +179,8 @@ def upload_detections(file_system, upload_directory, video_name):
         _, img_encoded = cv2.imencode('.jpg', frame)
         img_bytes = img_encoded.tobytes()
 
-        print(f"Uploading detection for frame {item_count["state"]}...")
-        file_name = f"detection_{video_name}_{item_count["state"]}.jpg"
+        print(f"Uploading detection for frame {item_count['state']}...")
+        file_name = f"detection_{video_name}_{item_count['state']}.jpg"
         file_name_db = f"{upload_directory}/{file_name}"
         file_client = directory_client.create_file(file_name)
         file_client.upload_data(img_bytes, overwrite=True)
