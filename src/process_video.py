@@ -201,7 +201,7 @@ def upload_detections(file_system, upload_directory, video_name):
         }
         assets_payload['assets'].append(asset)
 
-        item_count["state"] += 1
+        item_count['state'] += 1
 
     process_task_on_queue(process, processed_assets_queue, processed_assets_thread_condition)
 
