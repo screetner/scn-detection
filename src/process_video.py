@@ -25,10 +25,11 @@ model_path = get_as_absolute_path('../model/best1.pt')
 model = YOLO(model_path)
 
 assets_payload: AssetsPayload = {}
-QUEUE_SIZE = 1024
+DETECTION_QUEUE_SIZE = int(os.getenv('DETECTION_QUEUE_SIZE'))
+PROCESS_QUEUE_SIZE = int(os.getenv('PROCESS_QUEUE_SIZE'))
 CONFIDENCE_THRESHOLD = 0.0
-detection_queue = Queue(QUEUE_SIZE)
-processed_assets_queue = Queue(QUEUE_SIZE)
+detection_queue = Queue(DETECTION_QUEUE_SIZE)
+processed_assets_queue = Queue(PROCESS_QUEUE_SIZE)
 detection_thread_condition = Condition()
 processed_assets_thread_condition = Condition()
 
