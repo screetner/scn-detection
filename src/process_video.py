@@ -1,3 +1,4 @@
+import gc
 import os
 import threading
 import requests
@@ -27,6 +28,7 @@ model = YOLO(model_path)
 assets_payload: AssetsPayload = {}
 DETECTION_QUEUE_SIZE = int(os.getenv('DETECTION_QUEUE_SIZE'))
 PROCESS_QUEUE_SIZE = int(os.getenv('PROCESS_QUEUE_SIZE'))
+FRAME_PER_OBJECT_CAP = int(os.getenv('FRAME_PER_OBJECT_CAP'))
 CONFIDENCE_THRESHOLD = 0.0
 detection_queue = Queue(DETECTION_QUEUE_SIZE)
 processed_assets_queue = Queue(PROCESS_QUEUE_SIZE)
@@ -115,6 +117,10 @@ def process_detections(tloc_path_abs: str):
                 "detection": [],
             })
             track_id_property_map[track_id]["thresholdCountdown"] = THRESHOLD_COUNTDOWN + 1
+
+            if len(track_id_property_map[track_id]["detection"]) >= FRAME_PER_OBJECT_CAP:
+                track_id_property_map[track_id]["detection"].pop(0)
+
             track_id_property_map[track_id]["detection"].append({
                 "recordedAt": recorded_at,
                 "frame": frame
@@ -140,6 +146,7 @@ def process_detections(tloc_path_abs: str):
 
         processing_assets.sort(key=sort_function)
         [process_asset(detection, timestamp_location_queue) for detection in processing_assets]
+        gc.collect()
 
     process_task_on_queue(process, detection_queue, detection_thread_condition)
 
