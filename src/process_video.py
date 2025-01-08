@@ -77,14 +77,19 @@ def detect_frames(video_path_abs: str, initial_timestamp: int):
                 track_ids = result.boxes.id.int().cpu().tolist()
                 timestamp_ms = initial_timestamp + video_capture.get(cv2.CAP_PROP_POS_MSEC)
 
-                for box in result.boxes:
+                tracking_boxes = []
+
+                for track_id, box in zip(track_ids, result.boxes):
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    tracking_boxes.append({
+                        'trackId': track_id,
+                        'box': (x1, y1, x2, y2)
+                    })
 
                 push_to_queue_syc({
                     'frame': frame,
                     'recordedAt': timestamp_ms,
-                    'trackIds': track_ids
+                    'trackingBoxes': tracking_boxes
                 }, detection_queue, detection_thread_condition)
 
         video_capture.release()
@@ -107,11 +112,14 @@ def process_detections(tloc_path_abs: str):
     track_id_property_map = {}
 
     def process(data):
-        track_ids = data["trackIds"]
+        tracking_boxes = data["trackingBoxes"]
         recorded_at = data["recordedAt"]
         frame = data["frame"]
 
-        for track_id in track_ids:
+        for tracking_box in tracking_boxes:
+            track_id = tracking_box["trackId"]
+            box = tracking_box["box"]
+
             track_id_property_map.setdefault(track_id, {
                 "thresholdCountdown": THRESHOLD_COUNTDOWN + 1,
                 "detection": [],
@@ -123,7 +131,8 @@ def process_detections(tloc_path_abs: str):
 
             track_id_property_map[track_id]["detection"].append({
                 "recordedAt": recorded_at,
-                "frame": frame
+                "frame": frame,
+                "box": box
             })
 
         processing_assets = []
@@ -157,8 +166,15 @@ def process_detections(tloc_path_abs: str):
 
 def process_asset(data, timestamp_location_queue: Queue[TlocTuple]):
     third_quartile_index = int(0.75 * (len(data) - 1))
-    selected_frame = data[third_quartile_index]["frame"]
+    third_quartile_detection = data[third_quartile_index]
+    selected_frame = third_quartile_detection["frame"]
+    selected_box = third_quartile_detection["box"]
+
+    x1, y1, x2, y2 = selected_box
+    cv2.rectangle(selected_frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+
     selected_recorded_timestamp = data[-1]["recordedAt"]
+    selected_recorded_timestamp_iso = datetime.fromtimestamp(selected_recorded_timestamp / 1000, tz=timezone.utc).isoformat()
 
     read_next = lambda q : q.queue[0]
 
@@ -170,7 +186,7 @@ def process_asset(data, timestamp_location_queue: Queue[TlocTuple]):
     push_to_queue_syc({
         'frame': selected_frame,
         'tloc': selected_tloc,
-        'recordedAt': datetime.fromtimestamp(selected_recorded_timestamp / 1000, tz=timezone.utc).isoformat()
+        'recordedAt': selected_recorded_timestamp_iso,
     }, processed_assets_queue, processed_assets_thread_condition)
 
 def upload_detections(file_system, upload_directory, video_name):
