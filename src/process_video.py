@@ -37,7 +37,10 @@ processed_assets_thread_condition = Condition()
 
 THRESHOLD_COUNTDOWN = 300  # 10 seconds
 
-def process_task_on_queue(task, queue: Queue, condition: Condition):
+def noop() :
+    pass
+
+def process_task_on_queue(task, finalizingTask, queue: Queue, condition: Condition):
     while True:
         with condition:
             while queue.empty():
@@ -47,6 +50,7 @@ def process_task_on_queue(task, queue: Queue, condition: Condition):
 
         if data is None:
             print(f"Received end of {task} signal")
+            finalizingTask()
             break
 
         task(data)
@@ -111,6 +115,13 @@ def process_detections(tloc_path_abs: str):
 
     track_id_property_map = {}
 
+    def process_assets_batch(detections):
+        def sort_function(detection):
+            return detection[-1]['recordedAt']
+
+        detections.sort(key=sort_function)
+        [process_asset(detection, timestamp_location_queue) for detection in detections]
+
     def process(data):
         tracking_boxes = data["trackingBoxes"]
         recorded_at = data["recordedAt"]
@@ -150,14 +161,15 @@ def process_detections(tloc_path_abs: str):
         if len(processing_assets) == 0:
             return
 
-        def sort_function(detection):
-            return detection[-1]['recordedAt']
+        process_assets_batch(processing_assets)
 
-        processing_assets.sort(key=sort_function)
-        [process_asset(detection, timestamp_location_queue) for detection in processing_assets]
+    def finalizing_process():
+        detections = [value["detection"] for key, value in track_id_property_map.items()]
+        process_assets_batch(detections)
+        track_id_property_map.clear()
         gc.collect()
 
-    process_task_on_queue(process, detection_queue, detection_thread_condition)
+    process_task_on_queue(process, finalizing_process, detection_queue, detection_thread_condition)
 
     with processed_assets_thread_condition:
         print("Asset process complete. Putting None in process queue...")
@@ -227,7 +239,7 @@ def upload_detections(file_system, upload_directory, video_name):
 
         item_count['state'] += 1
 
-    process_task_on_queue(process, processed_assets_queue, processed_assets_thread_condition)
+    process_task_on_queue(process, noop, processed_assets_queue, processed_assets_thread_condition)
 
     print("Upload process complete")
 
