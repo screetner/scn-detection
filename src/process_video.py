@@ -252,7 +252,7 @@ def upload_assets():
         print(f"Error uploading assets: {e}")
 
 def fail_alert(video_session_id: str):
-    api_url = os.getenv('API_URL') + '/process/fail'
+    api_url = os.getenv('API_URL') + '/python/process/fail'
 
     try:
         requests.post(api_url, json={'videoSessionId': video_session_id})
