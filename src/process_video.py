@@ -104,8 +104,8 @@ def detect_frames(video_path_abs: str, initial_timestamp: int):
             detection_thread_condition.notify()
 
     except Exception as e:
-        print(f'Error processing video: {e}')
-        return None
+        print(f'Error detecting frame video: {e}')
+        raise
 
 def process_detections(tloc_path_abs: str):
     tloc_path_abs = get_as_absolute_path(tloc_path_abs)
@@ -270,27 +270,49 @@ def safe_thread(target, *args):
         target(*args)
     except Exception as e:
         print(f"Error in {target.__name__}: {e}")
+        raise
+
+class ThreadWithException(threading.Thread):
+    def __init__(self, target, args=(), kwargs=None):
+        super().__init__()
+        self._target_fn = target
+        self._args = args
+        self._kwargs = kwargs or {}
+        self.exc = None
+
+    def run(self):
+        try:
+            if self._target_fn:
+                self._target_fn(*self._args, **self._kwargs)
+        except Exception as e:
+            self.exc = e
+
+    def join(self, timeout=None):
+        super().join(timeout)
+        if self.exc:
+            raise self.exc
 
 def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str,
                         initial_timestamp: int, recorded_user_id: str, video_name: str, video_session_id: str):
-    assets_payload['recordedUserId'] = recorded_user_id
-    assets_payload['assets'] = []
-
-    detection_thread = threading.Thread(target=safe_thread, args=(detect_frames, video_path, initial_timestamp))
-    processing_thread = threading.Thread(target=safe_thread, args=(process_detections, tloc_path))
-    upload_thread = threading.Thread(target=safe_thread, args=(upload_detections, file_system_directory, upload_directory, video_name))
-
-    upload_thread.start()
-    processing_thread.start()
-    detection_thread.start()
-
-    upload_thread.join()
-    processing_thread.join()
-    detection_thread.join()
-
     try:
+        assets_payload['recordedUserId'] = recorded_user_id
+        assets_payload['assets'] = []
+
+        detection_thread = ThreadWithException(target=detect_frames, args=(video_path, initial_timestamp))
+        processing_thread = ThreadWithException(target=process_detections, args=(tloc_path,))
+        upload_thread = ThreadWithException(target=upload_detections, args=(file_system_directory, upload_directory, video_name))
+
+        detection_thread.start()
+        processing_thread.start()
+        upload_thread.start()
+
+        detection_thread.join()
+        processing_thread.join()
+        upload_thread.join()
+
         upload_assets()
+
     except Exception as e:
-        print(f"Error uploading assets: {e}")
+        print(f"\nError processing assets: {e}")
         fail_alert(video_session_id)
         return
