@@ -42,6 +42,9 @@ def process_detections(tloc_path_abs: str):
         timestamp_location_queue = read_location_binary(tloc_path_abs)
         print("total tloc record count: " + str(timestamp_location_queue.qsize()))
 
+        if timestamp_location_queue.qsize() == 0:
+            raise Exception("No tloc records found")
+
         track_id_property_map = {}
 
         def process_assets_batch(detections):
