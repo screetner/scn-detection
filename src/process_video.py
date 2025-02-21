@@ -247,7 +247,12 @@ def upload_assets():
     api_url = os.getenv('API_URL') + '/python'
 
     try:
+        if len(assets_payload['assets']) != 0:
+            print("Uploading assets...")
+
         requests.post(api_url, json=assets_payload)
+
+        print("Total of assets uploaded: " + str(len(assets_payload['assets'])))
     except requests.exceptions.RequestException as e:
         print(f"Error uploading assets: {e}")
 
