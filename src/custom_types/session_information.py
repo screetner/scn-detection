@@ -8,5 +8,6 @@ class VideoTlocTuple(TypedDict, total=False):
 class SessionInformation(TypedDict, total=False):
     videoCount: int
     sessionStartTime: str
+    videoSessionId: str
     recordedUserId: str
     videoTlocTuples: List[VideoTlocTuple]

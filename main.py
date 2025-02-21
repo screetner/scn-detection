@@ -14,6 +14,7 @@ def main(session_folder_path, session_detected_folder_path):
 
     absolute_information_path = os.path.join(local_path_abs, 'information.json')
     session_information = read_session_information(absolute_information_path)
+    videoSessionId = session_information['videoSessionId']
 
     recorded_user_id = session_information['recordedUserId']
     list_of_videos = session_information['videoTlocTuples']
@@ -30,7 +31,7 @@ def main(session_folder_path, session_detected_folder_path):
         video_path_abs = os.path.join(local_path_abs, video_name)
         tloc_path_abs = os.path.join(local_path_abs, tloc_name)
 
-        start_all_processes(video_path_abs, tloc_path_abs, CONTAINER_NAME, session_detected_folder_path, video_recorded_time, recorded_user_id, video_name_exclude_ext)
+        start_all_processes(video_path_abs, tloc_path_abs, CONTAINER_NAME, session_detected_folder_path, video_recorded_time, recorded_user_id, video_name_exclude_ext, videoSessionId)
 
 
 if __name__ == '__main__':

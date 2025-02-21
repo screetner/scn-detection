@@ -223,15 +223,29 @@ def upload_assets():
     except requests.exceptions.RequestException as e:
         print(f"Error uploading assets: {e}")
 
+def fail_alert(video_session_id: str):
+    api_url = os.getenv('API_URL') + '/process/fail'
+
+    try:
+        requests.post(api_url, json={'videoSessionId': video_session_id})
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending fail alert: {e}")
+
+
+def safe_thread(target, *args):
+    try:
+        target(*args)
+    except Exception as e:
+        print(f"Error in {target.__name__}: {e}")
 
 def start_all_processes(video_path: str, tloc_path: str, file_system_directory: str, upload_directory: str,
-                        initial_timestamp: int, recorded_user_id: str, video_name: str):
+                        initial_timestamp: int, recorded_user_id: str, video_name: str, video_session_id: str):
     assets_payload['recordedUserId'] = recorded_user_id
     assets_payload['assets'] = []
 
-    detection_thread = threading.Thread(target=detect_frames, args=(video_path, initial_timestamp))
-    processing_thread = threading.Thread(target=process_detections, args=(tloc_path,))
-    upload_thread = threading.Thread(target=upload_detections, args=(file_system_directory, upload_directory, video_name))
+    detection_thread = threading.Thread(target=safe_thread, args=(detect_frames, video_path, initial_timestamp))
+    processing_thread = threading.Thread(target=safe_thread, args=(process_detections, tloc_path))
+    upload_thread = threading.Thread(target=safe_thread, args=(upload_detections, file_system_directory, upload_directory, video_name))
 
     upload_thread.start()
     processing_thread.start()
@@ -241,4 +255,9 @@ def start_all_processes(video_path: str, tloc_path: str, file_system_directory: 
     processing_thread.join()
     detection_thread.join()
 
-    upload_assets()
+    try:
+        upload_assets()
+    except Exception as e:
+        print(f"Error uploading assets: {e}")
+        fail_alert(video_session_id)
+        return
