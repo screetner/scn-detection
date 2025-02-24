@@ -2,7 +2,7 @@ import gc
 
 import cv2
 
-from src.process.config import model
+from src.process.config import model, CONFIDENCE_THRESHOLD
 from src.process.global_values import detection_queue, detection_thread_condition, stop_event
 from src.process.utils import push_to_queue_syc
 
@@ -30,6 +30,10 @@ def detect_frames(video_path_abs: str, initial_timestamp: int):
 
                 tracking_boxes = []
                 for track_id, box in zip(track_ids, result.boxes):
+                    confidence = box.conf.item()
+                    if confidence <= CONFIDENCE_THRESHOLD:
+                        continue
+
                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                     tracking_boxes.append({
                         'trackId': track_id,
