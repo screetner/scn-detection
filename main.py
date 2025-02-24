@@ -53,8 +53,7 @@ if __name__ == '__main__':
         if not os.path.exists('./downloaded'):
             os.makedirs('./downloaded')
 
-        session_folder_path = '/Users/thanapat/Documents/Projects/Screetner/scn-detection/downloaded'
-        main(session_folder_path, args.session_detected_folder_path)
+        main(args.session_folder_path, args.session_detected_folder_path)
         sys.exit(0)
 
     except Exception as e:
