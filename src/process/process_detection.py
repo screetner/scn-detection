@@ -2,7 +2,8 @@ import gc
 
 import cv2
 
-from src.process.config import model, detection_queue, detection_thread_condition, stop_event
+from src.process.config import model
+from src.process.global_values import detection_queue, detection_thread_condition, stop_event
 from src.process.utils import push_to_queue_syc
 
 def detect_frames(video_path_abs: str, initial_timestamp: int):
@@ -45,13 +46,12 @@ def detect_frames(video_path_abs: str, initial_timestamp: int):
 
         with detection_thread_condition:
             print("Asset detection complete. Putting None in detection queue...")
-            detection_queue.put(None)
-            detection_thread_condition.notify()
+            push_to_queue_syc(None, detection_queue, detection_thread_condition)
 
     except Exception as e:
         print(f'Error detecting frame video: {e}')
+        push_to_queue_syc(None, detection_queue, detection_thread_condition)
         stop_event.set()
-        detection_queue.put(None)
         raise
 
     finally:

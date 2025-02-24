@@ -2,7 +2,7 @@ import gc
 import os
 import requests
 import cv2
-from src.process.config import assets_payload, processed_assets_queue, processed_assets_thread_condition, stop_event
+from src.process.global_values import assets_payload, processed_assets_queue, processed_assets_thread_condition, stop_event
 from src.process.utils import process_task_on_queue, noop
 from src.azure_datalake import datalake_service_client
 from src.custom_types.assets_payload import Asset

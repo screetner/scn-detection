@@ -1,4 +1,4 @@
-from src.process.config import assets_payload
+from src.process.global_values import assets_payload
 from src.process.process_detection import detect_frames
 from src.process.process_processing import process_detections
 from src.process.process_upload import upload_detections, upload_assets, fail_alert
@@ -28,4 +28,4 @@ def start_all_processes(video_path: str, tloc_path: str, file_system_directory: 
     except Exception as e:
         print(f"\nError processing assets: {e}")
         fail_alert(video_session_id)
-        return
+        raise

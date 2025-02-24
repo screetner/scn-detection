@@ -3,8 +3,9 @@ from datetime import datetime, timezone
 
 import cv2
 
-from src.process.config import detection_queue, processed_assets_queue, detection_thread_condition, \
-    processed_assets_thread_condition, THRESHOLD_COUNTDOWN, FRAME_PER_OBJECT_CAP, get_as_absolute_path, stop_event
+from src.process.config import  THRESHOLD_COUNTDOWN, FRAME_PER_OBJECT_CAP, get_as_absolute_path
+from src.process.global_values import detection_queue, processed_assets_queue, detection_thread_condition, \
+    processed_assets_thread_condition, stop_event
 from src.tloc_decoder import read_location_binary
 from src.process.utils import process_task_on_queue, push_to_queue_syc
 
@@ -23,7 +24,7 @@ def process_asset(data, timestamp_location_queue):
         selected_recorded_timestamp / 1000, tz=timezone.utc).isoformat()
 
     read_next = lambda q: q.queue[0]
-    while not timestamp_location_queue.empty() and read_next(timestamp_location_queue)["timestamp"] > selected_recorded_timestamp:
+    while (not timestamp_location_queue.empty()) and read_next(timestamp_location_queue)["timestamp"] > selected_recorded_timestamp:
         timestamp_location_queue.get()
 
     selected_tloc = read_next(timestamp_location_queue)
@@ -104,13 +105,14 @@ def process_detections(tloc_path_abs: str):
 
         with processed_assets_thread_condition:
             print("Asset process complete. Putting None in process queue...")
-            processed_assets_queue.put(None)
-            processed_assets_thread_condition.notify()
+            push_to_queue_syc(None, processed_assets_queue, processed_assets_thread_condition)
 
     except Exception as e:
         print(f'Error processing asset: {e}')
+        print("PUSHING NONE TO processed_assets_queue")
+        push_to_queue_syc(None, processed_assets_queue, processed_assets_thread_condition)
+        print("NONE PUSHED TO processed_assets_queue")
         stop_event.set()
-        processed_assets_queue.put(None)
         raise
 
     finally:

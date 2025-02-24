@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 from src.azure_datalake import download_session_folder, delete_existing_directory, \
     create_directory
@@ -31,20 +32,31 @@ def main(session_folder_path, session_detected_folder_path):
         video_path_abs = os.path.join(local_path_abs, video_name)
         tloc_path_abs = os.path.join(local_path_abs, tloc_name)
 
-        start_all_processes(video_path_abs, tloc_path_abs, CONTAINER_NAME, session_detected_folder_path, video_recorded_time, recorded_user_id, video_name_exclude_ext, videoSessionId)
+        try:
+            start_all_processes(video_path_abs, tloc_path_abs, CONTAINER_NAME, session_detected_folder_path, video_recorded_time, recorded_user_id, video_name_exclude_ext, videoSessionId)
+        except Exception as e:
+            print(f"Error processing video {video_name}: {e}")
+            raise
 
 
 if __name__ == '__main__':
-    # Initialize argument parser
-    parser = argparse.ArgumentParser(description='Process session folder paths.')
-    parser.add_argument('--session_folder_path', required=True, help='Path to the session folder')
-    parser.add_argument('--session_detected_folder_path', required=True, help='Path to the session detected folder')
+    try:
+        # Initialize argument parser
+        parser = argparse.ArgumentParser(description='Process session folder paths.')
+        parser.add_argument('--session_folder_path', required=True, help='Path to the session folder')
+        parser.add_argument('--session_detected_folder_path', required=True, help='Path to the session detected folder')
 
-    # Parse arguments
-    args = parser.parse_args()
+        # Parse arguments
+        args = parser.parse_args()
 
-    # check if downloaded folder exists
-    if not os.path.exists('./downloaded'):
-        os.makedirs('./downloaded')
+        # check if downloaded folder exists
+        if not os.path.exists('./downloaded'):
+            os.makedirs('./downloaded')
 
-    main(args.session_folder_path, args.session_detected_folder_path)
+        session_folder_path = '/Users/thanapat/Documents/Projects/Screetner/scn-detection/downloaded'
+        main(session_folder_path, args.session_detected_folder_path)
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"Error processing session folder: {e}")
+        sys.exit(1)
