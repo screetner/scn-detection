@@ -24,7 +24,7 @@ def process_asset(data, timestamp_location_queue):
         selected_recorded_timestamp / 1000, tz=timezone.utc).isoformat()
 
     read_next = lambda q: q.queue[0]
-    while (not timestamp_location_queue.empty()) and read_next(timestamp_location_queue)["timestamp"] > selected_recorded_timestamp:
+    while (timestamp_location_queue.qsize() > 1) and read_next(timestamp_location_queue)["timestamp"] < selected_recorded_timestamp:
         timestamp_location_queue.get()
 
     selected_tloc = read_next(timestamp_location_queue)
@@ -109,9 +109,7 @@ def process_detections(tloc_path_abs: str):
 
     except Exception as e:
         print(f'Error processing asset: {e}')
-        print("PUSHING NONE TO processed_assets_queue")
         push_to_queue_syc(None, processed_assets_queue, processed_assets_thread_condition)
-        print("NONE PUSHED TO processed_assets_queue")
         stop_event.set()
         raise
 
