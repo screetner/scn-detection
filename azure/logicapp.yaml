@@ -1,14 +1,41 @@
 {
     "definition": {
         "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "triggers": {
+            "When_a_HTTP_request_is_received": {
+                "type": "Request",
+                "kind": "Http",
+                "inputs": {
+                    "method": "POST",
+                    "schema": {
+                        "properties": {
+                            "sessionId": {
+                                "type": "string"
+                            },
+                            "session_folder_path": {
+                                "type": "string"
+                            },
+                            "session_detected_folder_path": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "operationOptions": "EnableSchemaValidation"
+            }
+        },
         "actions": {
             "Check_container_status": {
                 "actions": {
                     "For_each": {
+                        "foreach": "@body('Get_container_group')['properties']['containers']",
                         "actions": {
                             "Condition": {
                                 "actions": {
                                     "Delete_a_container_group": {
+                                        "type": "ApiConnection",
                                         "inputs": {
                                             "host": {
                                                 "connection": {
@@ -16,24 +43,23 @@
                                                 }
                                             },
                                             "method": "delete",
-                                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
+                                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn-aujung')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['sessionId'])}",
                                             "queries": {
                                                 "x-ms-api-version": "2019-12-01"
                                             }
-                                        },
-                                        "type": "ApiConnection"
+                                        }
                                     },
                                     "Set_variable": {
-                                        "inputs": {
-                                            "name": "container status",
-                                            "value": "Terminated"
-                                        },
                                         "runAfter": {
                                             "Delete_a_container_group": [
                                                 "Succeeded"
                                             ]
                                         },
-                                        "type": "SetVariable"
+                                        "type": "SetVariable",
+                                        "inputs": {
+                                            "name": "container status",
+                                            "value": "Terminated"
+                                        }
                                     }
                                 },
                                 "else": {
@@ -52,7 +78,6 @@
                                 "type": "If"
                             }
                         },
-                        "foreach": "@body('Get_container_group')['properties']['containers']",
                         "runAfter": {
                             "Get_container_group": [
                                 "Succeeded"
@@ -61,6 +86,7 @@
                         "type": "Foreach"
                     },
                     "Get_container_group": {
+                        "type": "ApiConnection",
                         "inputs": {
                             "host": {
                                 "connection": {
@@ -68,27 +94,34 @@
                                 }
                             },
                             "method": "get",
-                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
+                            "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn-aujung')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['sessionId'])}",
                             "queries": {
                                 "x-ms-api-version": "2019-12-01"
                             }
-                        },
-                        "type": "ApiConnection"
+                        }
                     }
-                },
-                "expression": "@equals(variables('container status'),'Terminated')",
-                "limit": {
-                    "timeout": "PT1H"
                 },
                 "runAfter": {
                     "Initialize_variable": [
                         "Succeeded"
                     ]
                 },
+                "expression": "@equals(variables('container status'),'Terminated')",
+                "limit": {
+                    "timeout": "PT1H"
+                },
                 "type": "Until"
             },
             "Create_or_update_a_container_group": {
+                "runAfter": {},
+                "type": "ApiConnection",
                 "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['aci']['connectionId']"
+                        }
+                    },
+                    "method": "put",
                     "body": {
                         "location": "Southeast Asia",
                         "properties": {
@@ -99,64 +132,78 @@
                                         "command": [
                                             "python",
                                             "main.py",
-                                            "--file_system",
-                                            "@{triggerBody()?['file_system']}",
-                                            "--directory_name",
-                                            "@{triggerBody()?['directory_name']}",
-                                            "--file_name",
-                                            "@{triggerBody()?['file_name']}",
-                                            "--upload_directory",
-                                            "@{triggerBody()?['upload_directory']}",
-                                            "--recorder_id",
-                                            "@{triggerBody()?['recorder_id']}"
+                                            "--session_folder_path",
+                                            "@{triggerBody()?['session_folder_path']}",
+                                            "--session_detected_folder_path",
+                                            "@{triggerBody()?['session_detected_folder_path']}"
                                         ],
                                         "environmentVariables": [
                                             {
-                                                "name": "BLOB",
-                                                "value": ""
+                                                "name": "BLOB_CONNECTION_STRING",
+                                                "value": "xxx"
                                             },
                                             {
-                                                "name": "DB_CONNECTION",
-                                                "value": ""
+                                                "name": "API_URL",
+                                                "value": "xxx"
+                                            },
+                                            {
+                                                "name": "DETECTION_QUEUE_SIZE",
+                                                "value": "1024"
+                                            },
+                                            {
+                                                "name": "PROCESS_QUEUE_SIZE",
+                                                "value": "1024"
+                                            },
+                                            {
+                                                "name": "FRAME_PER_OBJECT_CAP",
+                                                "value": "768"
+                                            },
+                                            {
+                                                "name": "CONFIDENCE_THRESHOLD",
+                                                "value": "0.4"
                                             }
                                         ],
-                                        "image": "aujung/scn-detection:main",
+                                        "image": "xxx",
                                         "resources": {
                                             "requests": {
                                                 "cpu": 4,
-                                                "memoryInGB": 16
+                                                "memoryInGB": 4
                                             }
                                         }
                                     }
                                 }
                             ],
-                            "imageRegistryCredentials": [
-                                {
-                                    "password": "",
-                                    "server": "docker.io",
-                                    "username": "aujung"
-                                }
-                            ],
                             "osType": "Linux",
                             "restartPolicy": "Never",
-                            "sku": "Standard"
+                            "diagnostics": {
+                                "logAnalytics": {
+                                    "workspaceId": "a6b7eb5a-5520-4cba-be2d-119a1d9269ba",
+                                    "workspaceKey": "u1uk9LyRvB7aZna20kAPiFD3gN9Q33EWxXRaNtaFKyjkOe31tRZtrbB39l/ogKIoCqk5kKWCaszH4c/nx2pOvg=="
+                                }
+                            },
+                            "sku": "Standard",
+                            "imageRegistryCredentials": [
+                                {
+                                    "server": "xxx",
+                                    "username": "xxx",
+                                    "password": "xxx"
+                                }
+                            ]
                         }
                     },
-                    "host": {
-                        "connection": {
-                            "name": "@parameters('$connections')['aci']['connectionId']"
-                        }
-                    },
-                    "method": "put",
-                    "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['file_name'])}",
+                    "path": "/subscriptions/@{encodeURIComponent('6a5246f6-5d54-43c3-8169-e187bba3a8d4')}/resourceGroups/@{encodeURIComponent('scn-aujung')}/providers/Microsoft.ContainerInstance/containerGroups/@{encodeURIComponent(triggerBody()?['sessionId'])}",
                     "queries": {
                         "x-ms-api-version": "2019-12-01"
                     }
-                },
-                "runAfter": {},
-                "type": "ApiConnection"
+                }
             },
             "Initialize_variable": {
+                "runAfter": {
+                    "Create_or_update_a_container_group": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable",
                 "inputs": {
                     "variables": [
                         {
@@ -165,61 +212,25 @@
                             "value": "Init"
                         }
                     ]
-                },
-                "runAfter": {
-                    "Create_or_update_a_container_group": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "InitializeVariable"
+                }
             }
         },
-        "contentVersion": "1.0.0.0",
         "outputs": {},
         "parameters": {
             "$connections": {
-                "defaultValue": {},
-                "type": "Object"
-            }
-        },
-        "triggers": {
-            "When_a_HTTP_request_is_received": {
-                "inputs": {
-                    "method": "POST",
-                    "schema": {
-                        "properties": {
-                            "directory_name": {
-                                "type": "string"
-                            },
-                            "file_name": {
-                                "type": "string"
-                            },
-                            "file_system": {
-                                "type": "string"
-                            },
-                            "recorder_id": {
-                                "type": "string"
-                            },
-                            "upload_directory": {
-                                "type": "string"
-                            }
-                        },
-                        "type": "object"
-                    }
-                },
-                "kind": "Http",
-                "operationOptions": "EnableSchemaValidation",
-                "type": "Request"
+                "type": "Object",
+                "defaultValue": {}
             }
         }
     },
     "parameters": {
         "$connections": {
+            "type": "Object",
             "value": {
                 "aci": {
-                    "connectionId": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/resourceGroups/scn/providers/Microsoft.Web/connections/aci",
-                    "connectionName": "aci",
-                    "id": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/providers/Microsoft.Web/locations/southeastasia/managedApis/aci"
+                    "id": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/providers/Microsoft.Web/locations/southeastasia/managedApis/aci",
+                    "connectionId": "/subscriptions/6a5246f6-5d54-43c3-8169-e187bba3a8d4/resourceGroups/scn-aujung/providers/Microsoft.Web/connections/aci",
+                    "connectionName": "aci"
                 }
             }
         }
