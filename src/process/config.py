@@ -8,7 +8,7 @@ load_dotenv()
 def get_as_absolute_path(path: str):
     return os.path.join(os.path.dirname(__file__), path)
 
-model_path = get_as_absolute_path('../../model/best1.pt')
+model_path = get_as_absolute_path('../../model/best3.pt')
 model = YOLO(model_path)
 
 DETECTION_QUEUE_SIZE = int(os.getenv('DETECTION_QUEUE_SIZE'))
